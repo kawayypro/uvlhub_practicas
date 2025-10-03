@@ -11,6 +11,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
     services:
       mysql:
         image: mysql:5.7
@@ -30,12 +33,26 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: ${{ matrix.python-version }}
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+
+    - name: Check for outdated dependencies
+      run: |
+        echo "Checking for outdated dependencies..."
+        pip list --outdated --format=columns || echo "All dependencies are up to date"
+
+    - name: Security audit of dependencies
+      run: |
+        echo "Installing pip-audit..."
+        pip install pip-audit
+        echo "Running security audit..."
+        pip-audit --desc --format=json --output=security-audit.json || echo "Security issues found, check the report"
+        echo "Running security audit with human-readable output..."
+        pip-audit --desc || echo "Security audit completed with findings"
 
     - name: Upload coverage to Codacy
       run: |
