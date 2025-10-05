@@ -1,15 +1,11 @@
 name: Deploy to Render
 
 on:
-    push:
-      branches:
-        - main
-    pull_request:
-      branches:
-        - main
+  push:
+    tags:
+      - 'v*'  # Only deploy when a version tag is created
 
 jobs:
-
   deploy:
     name: Deploy to Render
     runs-on: ubuntu-latest
@@ -17,8 +13,26 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
+      - name: Wait for tests to pass
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-regexp: 'build \(.+\)'  # Wait for all build jobs (3.10, 3.11, 3.12)
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: Get tag version
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "🏷️ Deploying version: $VERSION"
+
       - name: Deploy to Render
         env:
           deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
+          echo "🚀 Deploying version ${{ steps.get_version.outputs.version }} to Render..."
           curl "$deploy_url"
+          echo "✅ Deploy triggered successfully for version ${{ steps.get_version.outputs.version }}"
